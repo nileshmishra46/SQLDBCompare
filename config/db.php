@@ -44,7 +44,6 @@ function getConnection(array $params): PDO {
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
-        PDO::ATTR_TIMEOUT => 15 // Timeout in seconds
     ];
     
     return new PDO($dsn, $params['user'] ?? '', $params['password'] ?? '', $options);
