@@ -72,20 +72,34 @@ BEGIN
     RETURN @Username;
 END;
 GO
+
+CREATE TABLE [dbo].[User Logins-Details] (
+    [Login Id] INT NOT NULL,
+    [User Id] INT NOT NULL,
+    [Last Login-Time] DATETIME NULL
+);
+GO
+
+CREATE OR ALTER VIEW [dbo].[v_ActiveUsersDetails] AS
+SELECT [Login Id], [User Id] FROM [dbo].[User Logins-Details];
+GO
 SQL;
 
 $parser = new SqlFileParser();
 $parsed = $parser->parse($sampleSql);
 
 assertTest("Parser extracts tables successfully", isset($parsed['tables']['dbo.users']));
-assertTest("Parser extracts columns count", count($parsed['columns']) === 4);
+assertTest("Parser extracts table with spaces and hyphens", isset($parsed['tables']['dbo.user logins-details']));
+assertTest("Parser extracts columns count", count($parsed['columns']) === 7);
 assertTest("Parser checks column type and length", $parsed['columns']['dbo.users.username']['type'] === 'NVARCHAR' && $parsed['columns']['dbo.users.username']['length'] === 50);
+assertTest("Parser checks column with spaces in name", isset($parsed['columns']['dbo.user logins-details.login id']) && $parsed['columns']['dbo.user logins-details.login id']['type'] === 'INT');
 assertTest("Parser checks column nullability", $parsed['columns']['dbo.users.email']['nullable'] === true && $parsed['columns']['dbo.users.username']['nullable'] === false);
 assertTest("Parser extracts inline default constraint", isset($parsed['default_constraints']['dbo.df_users_createdat']) || isset($parsed['default_constraints']['dbo.df_users_username']));
 assertTest("Parser extracts primary key", isset($parsed['primary_keys']['dbo.users.pk_users']) && $parsed['primary_keys']['dbo.users.pk_users']['columns'][0] === 'Id');
 assertTest("Parser extracts index with filter", isset($parsed['indexes']['dbo.users.ix_users_email']) && $parsed['indexes']['dbo.users.ix_users_email']['is_unique'] === true && $parsed['indexes']['dbo.users.ix_users_email']['filter'] === '[Email] IS NOT NULL');
 assertTest("Parser extracts trigger", isset($parsed['triggers']['dbo.tr_users_audit']) && count($parsed['triggers']['dbo.tr_users_audit']['events']) === 2);
 assertTest("Parser extracts view successfully", isset($parsed['views']['dbo.v_activeusers']));
+assertTest("Parser extracts view with CREATE OR ALTER and spaces in table name", isset($parsed['views']['dbo.v_activeusersdetails']));
 assertTest("Parser extracts procedure successfully", isset($parsed['procedures']['dbo.sp_getuser']));
 assertTest("Parser extracts function successfully", isset($parsed['functions']['dbo.fn_getusername']));
 

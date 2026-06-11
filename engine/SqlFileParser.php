@@ -73,8 +73,8 @@ class SqlFileParser {
      * (We'll do a simple split, but ignore semicolons inside BEGIN...END blocks for triggers if needed)
      */
     private function splitStatements(string $batch): array {
-        // If it starts with CREATE TRIGGER/VIEW/PROCEDURE/FUNCTION, do not split it because it contains internal semicolons
-        if (preg_match('/^\s*CREATE\s+(?:TRIGGER|VIEW|PROCEDURE|PROC|FUNCTION)\b/i', $batch)) {
+        // If it starts with CREATE/ALTER TRIGGER/VIEW/PROCEDURE/FUNCTION, do not split it because it contains internal semicolons
+        if (preg_match('/^\s*(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+(?:TRIGGER|VIEW|PROCEDURE|PROC|FUNCTION)\b/i', $batch)) {
             return [$batch];
         }
         
@@ -112,13 +112,13 @@ class SqlFileParser {
             $this->parseCreateIndex($stmt, $schema);
         } elseif (preg_match('/^\s*ALTER\s+TABLE\s+\S+\s+ADD\s+CONSTRAINT/i', $stmt)) {
             $this->parseAlterTableAddConstraint($stmt, $schema);
-        } elseif (preg_match('/^\s*CREATE\s+TRIGGER/i', $stmt)) {
+        } elseif (preg_match('/^\s*(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+TRIGGER/i', $stmt)) {
             $this->parseCreateTrigger($stmt, $schema);
-        } elseif (preg_match('/^\s*CREATE\s+VIEW/i', $stmt)) {
+        } elseif (preg_match('/^\s*(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+VIEW/i', $stmt)) {
             $this->parseCreateView($stmt, $schema);
-        } elseif (preg_match('/^\s*CREATE\s+(?:PROCEDURE|PROC)\b/i', $stmt)) {
+        } elseif (preg_match('/^\s*(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+(?:PROCEDURE|PROC)\b/i', $stmt)) {
             $this->parseCreateProcedure($stmt, $schema);
-        } elseif (preg_match('/^\s*CREATE\s+FUNCTION/i', $stmt)) {
+        } elseif (preg_match('/^\s*(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+FUNCTION/i', $stmt)) {
             $this->parseCreateFunction($stmt, $schema);
         }
     }
@@ -130,7 +130,7 @@ class SqlFileParser {
     
     private function parseCreateTable(string $stmt, array &$schema): void {
         // Extract table name
-        if (!preg_match('/CREATE\s+TABLE\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+        if (!preg_match('/CREATE\s+TABLE\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)/i', $stmt, $matches)) {
             return;
         }
         
@@ -158,7 +158,7 @@ class SqlFileParser {
             }
             
             // Check if it's a table-level constraint
-            if (preg_match('/^(?:CONSTRAINT\s+(\[?\w+\]?)\s+)?(PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|DEFAULT)\b/i', $part, $cMatches)) {
+            if (preg_match('/^(?:CONSTRAINT\s+(\[[^\]]+\]|[\w#@$]+)\s+)?(PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|DEFAULT)\b/i', $part, $cMatches)) {
                 $cName = !empty($cMatches[1]) ? $this->cleanName($cMatches[1]) : 'DF_' . uniqid();
                 $cType = strtoupper($cMatches[2]);
                 
@@ -186,7 +186,7 @@ class SqlFileParser {
                 ];
             }
         } elseif ($cType === 'FOREIGN KEY') {
-            if (preg_match('/FOREIGN\s+KEY\s*\((.*?)\)\s*REFERENCES\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s*\((.*?)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?/i', $part, $m)) {
+            if (preg_match('/FOREIGN\s+KEY\s*\((.*?)\)\s*REFERENCES\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s*\((.*?)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?/i', $part, $m)) {
                 $cols = array_map([$this, 'cleanName'], explode(',', $m[1]));
                 $refSch = !empty($m[2]) ? $this->cleanName($m[2]) : 'dbo';
                 $refTab = $this->cleanName($m[3]);
@@ -234,7 +234,7 @@ class SqlFileParser {
         // e.g. [Id] INT IDENTITY(1,1) NOT NULL
         // Split by whitespace, but protect types like VARCHAR(50) or DECIMAL(18, 2)
         // Find first word as column name
-        if (!preg_match('/^(\[?\w+\]?)\s+(\w+)(?:\((.*?)\))?/i', $part, $matches)) {
+        if (!preg_match('/^(\[[^\]]+\]|[\w#@$]+)\s+(\w+)(?:\((.*?)\))?/i', $part, $matches)) {
             return;
         }
         
@@ -335,7 +335,7 @@ class SqlFileParser {
     }
     
     private function parseCreateIndex(string $stmt, array &$schema): void {
-        $regex = '/CREATE\s+(UNIQUE\s+)?(?:(CLUSTERED|NONCLUSTERED)\s+)?INDEX\s+(\[?\w+\]?)\s+ON\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s*\((.*?)\)(?:\s*INCLUDE\s*\((.*?)\))?(?:\s*WHERE\s+(.*))?/is';
+        $regex = '/CREATE\s+(UNIQUE\s+)?(?:(CLUSTERED|NONCLUSTERED)\s+)?INDEX\s+(\[[^\]]+\]|[\w#@$]+)\s+ON\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s*\((.*?)\)(?:\s*INCLUDE\s*\((.*?)\))?(?:\s*WHERE\s+(.*))?/is';
         if (!preg_match($regex, $stmt, $matches)) {
             return;
         }
@@ -371,7 +371,7 @@ class SqlFileParser {
     
     private function parseAlterTableAddConstraint(string $stmt, array &$schema): void {
         // Match ALTER TABLE ... ADD CONSTRAINT ...
-        $regex = '/ALTER\s+TABLE\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s+ADD\s+CONSTRAINT\s+(\[?\w+\]?)\s+(PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|DEFAULT)\b/is';
+        $regex = '/ALTER\s+TABLE\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s+ADD\s+CONSTRAINT\s+(\[[^\]]+\]|[\w#@$]+)\s+(PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|DEFAULT)\b/is';
         if (!preg_match($regex, $stmt, $matches)) {
             return;
         }
@@ -401,7 +401,7 @@ class SqlFileParser {
                 ];
             }
         } elseif ($cType === 'FOREIGN KEY') {
-            $fkRegex = '/FOREIGN\s+KEY\s*\((.*?)\)\s*REFERENCES\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s*\((.*?)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?/is';
+            $fkRegex = '/FOREIGN\s+KEY\s*\((.*?)\)\s*REFERENCES\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s*\((.*?)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION))?/is';
             if (preg_match($fkRegex, $constraintContent, $m)) {
                 $cols = array_map([$this, 'cleanName'], explode(',', $m[1]));
                 $refSch = !empty($m[2]) ? $this->cleanName($m[2]) : 'dbo';
@@ -443,7 +443,7 @@ class SqlFileParser {
                 ];
             }
         } elseif ($cType === 'DEFAULT') {
-            if (preg_match('/DEFAULT\s+(.*?)\s+FOR\s+(\[?\w+\]?)/is', $constraintContent, $m)) {
+            if (preg_match('/DEFAULT\s+(.*?)\s+FOR\s+(\[[^\]]+\]|[\w#@$]+)/is', $constraintContent, $m)) {
                 $defExpr = trim($m[1]);
                 $col = $this->cleanName($m[2]);
                 $schema['default_constraints'][$key] = [
@@ -459,7 +459,7 @@ class SqlFileParser {
     
     private function parseCreateTrigger(string $stmt, array &$schema): void {
         // CREATE TRIGGER [schema].[trigger] ON [schema].[table] FOR|AFTER|INSTEAD OF [actions] AS [body]
-        $regex = '/CREATE\s+TRIGGER\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s+ON\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)\s+(?:FOR|AFTER|INSTEAD\s+OF)\s+(.*?)\s+AS/is';
+        $regex = '/(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+TRIGGER\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s+ON\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)\s+(?:FOR|AFTER|INSTEAD\s+OF)\s+(.*?)\s+AS/is';
         if (!preg_match($regex, $stmt, $matches)) {
             return;
         }
@@ -538,7 +538,7 @@ class SqlFileParser {
     }
 
     private function parseCreateView(string $stmt, array &$schema): void {
-        if (preg_match('/CREATE\s+VIEW\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+        if (preg_match('/(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+VIEW\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)/i', $stmt, $matches)) {
             $vSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
             $vName = $this->cleanName($matches[2]);
             $key = strtolower($vSchema . '.' . $vName);
@@ -551,7 +551,7 @@ class SqlFileParser {
     }
 
     private function parseCreateProcedure(string $stmt, array &$schema): void {
-        if (preg_match('/CREATE\s+(?:PROCEDURE|PROC)\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+        if (preg_match('/(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+(?:PROCEDURE|PROC)\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)/i', $stmt, $matches)) {
             $pSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
             $pName = $this->cleanName($matches[2]);
             $key = strtolower($pSchema . '.' . $pName);
@@ -564,7 +564,7 @@ class SqlFileParser {
     }
 
     private function parseCreateFunction(string $stmt, array &$schema): void {
-        if (preg_match('/CREATE\s+FUNCTION\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+        if (preg_match('/(?:CREATE|ALTER|CREATE\s+OR\s+ALTER)\s+FUNCTION\s+(?:(\[[^\]]+\]|[\w#@$]+)\.)?(\[[^\]]+\]|[\w#@$]+)/i', $stmt, $matches)) {
             $fSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
             $fName = $this->cleanName($matches[2]);
             $key = strtolower($fSchema . '.' . $fName);
