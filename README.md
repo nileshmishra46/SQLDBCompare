@@ -254,6 +254,6 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ## 👤 Author
 
-**Nilesh Mishra** — Senior Database Administrator | SQL Server & Azure Specialist
+**Nilesh Mishra** — Database Administrator 
 - GitHub: [https://github.com/nileshmishra46]
 - LinkedIn: [https://www.linkedin.com/in/nilesh46/]
