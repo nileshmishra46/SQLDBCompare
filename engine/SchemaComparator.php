@@ -25,6 +25,9 @@ class SchemaComparator {
                 'default_constraints' => [],
                 'indexes'             => [],
                 'triggers'            => [],
+                'views'               => [],
+                'procedures'          => [],
+                'functions'           => [],
             ],
             'missing_in_source' => [
                 'tables'              => [],
@@ -36,6 +39,9 @@ class SchemaComparator {
                 'default_constraints' => [],
                 'indexes'             => [],
                 'triggers'            => [],
+                'views'               => [],
+                'procedures'          => [],
+                'functions'           => [],
             ],
             'mismatches' => [
                 'columns'             => [],
@@ -46,6 +52,9 @@ class SchemaComparator {
                 'default_constraints' => [],
                 'indexes'             => [],
                 'triggers'            => [],
+                'views'               => [],
+                'procedures'          => [],
+                'functions'           => [],
             ]
         ];
 
@@ -75,6 +84,15 @@ class SchemaComparator {
 
         // 9. Compare Triggers
         $this->compareTriggers($source['triggers'], $target['triggers'], $source['tables'], $target['tables'], $diff);
+
+        // 10. Compare Views
+        $this->compareViews($source['views'] ?? [], $target['views'] ?? [], $diff);
+
+        // 11. Compare Procedures
+        $this->compareProcedures($source['procedures'] ?? [], $target['procedures'] ?? [], $diff);
+
+        // 12. Compare Functions
+        $this->compareFunctions($source['functions'] ?? [], $target['functions'] ?? [], $diff);
 
         return $diff;
     }
@@ -599,5 +617,89 @@ class SchemaComparator {
         $def = str_replace(['[', ']'], '', $def);
         
         return strtolower(trim($def));
+    }
+
+    private function compareViews(array $src, array $tgt, array &$diff): void {
+        foreach ($src as $key => $view) {
+            if (!isset($tgt[$key])) {
+                $diff['missing_in_target']['views'][$key] = $view;
+                continue;
+            }
+
+            $tgtView = $tgt[$key];
+            $srcBody = $this->normalizeTriggerDefinition($view['definition']);
+            $tgtBody = $this->normalizeTriggerDefinition($tgtView['definition']);
+
+            if ($srcBody !== $tgtBody) {
+                $diff['mismatches']['views'][$key] = [
+                    'source' => $view,
+                    'target' => $tgtView
+                ];
+            }
+        }
+
+        if ($this->settings['show_source_extras']) {
+            foreach ($tgt as $key => $view) {
+                if (!isset($src[$key])) {
+                    $diff['missing_in_source']['views'][$key] = $view;
+                }
+            }
+        }
+    }
+
+    private function compareProcedures(array $src, array $tgt, array &$diff): void {
+        foreach ($src as $key => $proc) {
+            if (!isset($tgt[$key])) {
+                $diff['missing_in_target']['procedures'][$key] = $proc;
+                continue;
+            }
+
+            $tgtProc = $tgt[$key];
+            $srcBody = $this->normalizeTriggerDefinition($proc['definition']);
+            $tgtBody = $this->normalizeTriggerDefinition($tgtProc['definition']);
+
+            if ($srcBody !== $tgtBody) {
+                $diff['mismatches']['procedures'][$key] = [
+                    'source' => $proc,
+                    'target' => $tgtProc
+                ];
+            }
+        }
+
+        if ($this->settings['show_source_extras']) {
+            foreach ($tgt as $key => $proc) {
+                if (!isset($src[$key])) {
+                    $diff['missing_in_source']['procedures'][$key] = $proc;
+                }
+            }
+        }
+    }
+
+    private function compareFunctions(array $src, array $tgt, array &$diff): void {
+        foreach ($src as $key => $func) {
+            if (!isset($tgt[$key])) {
+                $diff['missing_in_target']['functions'][$key] = $func;
+                continue;
+            }
+
+            $tgtFunc = $tgt[$key];
+            $srcBody = $this->normalizeTriggerDefinition($func['definition']);
+            $tgtBody = $this->normalizeTriggerDefinition($tgtFunc['definition']);
+
+            if ($srcBody !== $tgtBody) {
+                $diff['mismatches']['functions'][$key] = [
+                    'source' => $func,
+                    'target' => $tgtFunc
+                ];
+            }
+        }
+
+        if ($this->settings['show_source_extras']) {
+            foreach ($tgt as $key => $func) {
+                if (!isset($src[$key])) {
+                    $diff['missing_in_source']['functions'][$key] = $func;
+                }
+            }
+        }
     }
 }

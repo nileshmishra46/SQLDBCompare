@@ -52,6 +52,18 @@ class ScriptGenerator {
         foreach ($diff['mismatches']['triggers'] as $trgKey => $item) {
             $drops[] = $this->generateDropTrigger($item['target']);
         }
+        // Mismatches Views
+        foreach ($diff['mismatches']['views'] as $key => $item) {
+            $drops[] = $this->generateDropView($item['target']);
+        }
+        // Mismatches Procedures
+        foreach ($diff['mismatches']['procedures'] as $key => $item) {
+            $drops[] = $this->generateDropProcedure($item['target']);
+        }
+        // Mismatches Functions
+        foreach ($diff['mismatches']['functions'] as $key => $item) {
+            $drops[] = $this->generateDropFunction($item['target']);
+        }
 
         // Drop extra objects if configured
         // FKs
@@ -81,6 +93,18 @@ class ScriptGenerator {
         // Triggers
         foreach ($diff['missing_in_source']['triggers'] as $trg) {
             $drops[] = "-- Target-only Trigger to drop\n" . $this->generateDropTrigger($trg);
+        }
+        // Views
+        foreach ($diff['missing_in_source']['views'] as $view) {
+            $drops[] = "-- Target-only View to drop\n" . $this->generateDropView($view);
+        }
+        // Procedures
+        foreach ($diff['missing_in_source']['procedures'] as $proc) {
+            $drops[] = "-- Target-only Procedure to drop\n" . $this->generateDropProcedure($proc);
+        }
+        // Functions
+        foreach ($diff['missing_in_source']['functions'] as $func) {
+            $drops[] = "-- Target-only Function to drop\n" . $this->generateDropFunction($func);
         }
         // Extra target-only columns (commented out by default for safety)
         foreach ($diff['missing_in_source']['columns'] as $col) {
@@ -228,6 +252,48 @@ class ScriptGenerator {
             $creates[] = "-- ============================================== --";
             foreach ($trgsToAdd as $trg) {
                 $creates[] = $this->generateAddTrigger($trg);
+            }
+        }
+
+        // Add Missing/Mismatched Views
+        $viewsToAdd = array_merge(
+            $diff['missing_in_target']['views'] ?? [],
+            array_map(fn($x) => $x['source'], $diff['mismatches']['views'] ?? [])
+        );
+        if (!empty($viewsToAdd)) {
+            $creates[] = "-- ============================================== --";
+            $creates[] = "-- VIEWS                                          --";
+            $creates[] = "-- ============================================== --";
+            foreach ($viewsToAdd as $view) {
+                $creates[] = $this->generateAddView($view);
+            }
+        }
+
+        // Add Missing/Mismatched Procedures
+        $procsToAdd = array_merge(
+            $diff['missing_in_target']['procedures'] ?? [],
+            array_map(fn($x) => $x['source'], $diff['mismatches']['procedures'] ?? [])
+        );
+        if (!empty($procsToAdd)) {
+            $creates[] = "-- ============================================== --";
+            $creates[] = "-- PROCEDURES                                     --";
+            $creates[] = "-- ============================================== --";
+            foreach ($procsToAdd as $proc) {
+                $creates[] = $this->generateAddProcedure($proc);
+            }
+        }
+
+        // Add Missing/Mismatched Functions
+        $funcsToAdd = array_merge(
+            $diff['missing_in_target']['functions'] ?? [],
+            array_map(fn($x) => $x['source'], $diff['mismatches']['functions'] ?? [])
+        );
+        if (!empty($funcsToAdd)) {
+            $creates[] = "-- ============================================== --";
+            $creates[] = "-- FUNCTIONS                                      --";
+            $creates[] = "-- ============================================== --";
+            foreach ($funcsToAdd as $func) {
+                $creates[] = $this->generateAddFunction($func);
             }
         }
 
@@ -403,5 +469,38 @@ class ScriptGenerator {
 
     public function generateDropTrigger(array $trg): string {
         return "DROP TRIGGER [{$trg['schema']}].[{$trg['name']}];\nGO";
+    }
+
+    public function generateAddView(array $view): string {
+        if (empty($view['definition'])) {
+            return "-- WARNING: View [{$view['schema']}].[{$view['name']}] definition is encrypted or unavailable.\nGO";
+        }
+        return trim($view['definition']) . "\nGO";
+    }
+
+    public function generateDropView(array $view): string {
+        return "DROP VIEW [{$view['schema']}].[{$view['name']}];\nGO";
+    }
+
+    public function generateAddProcedure(array $proc): string {
+        if (empty($proc['definition'])) {
+            return "-- WARNING: Procedure [{$proc['schema']}].[{$proc['name']}] definition is encrypted or unavailable.\nGO";
+        }
+        return trim($proc['definition']) . "\nGO";
+    }
+
+    public function generateDropProcedure(array $proc): string {
+        return "DROP PROCEDURE [{$proc['schema']}].[{$proc['name']}];\nGO";
+    }
+
+    public function generateAddFunction(array $func): string {
+        if (empty($func['definition'])) {
+            return "-- WARNING: Function [{$func['schema']}].[{$func['name']}] definition is encrypted or unavailable.\nGO";
+        }
+        return trim($func['definition']) . "\nGO";
+    }
+
+    public function generateDropFunction(array $func): string {
+        return "DROP FUNCTION [{$func['schema']}].[{$func['name']}];\nGO";
     }
 }

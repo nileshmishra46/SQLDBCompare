@@ -21,6 +21,9 @@ class SqlFileParser {
             'default_constraints' => [],
             'indexes'             => [],
             'triggers'            => [],
+            'views'               => [],
+            'procedures'          => [],
+            'functions'           => [],
         ];
         
         foreach ($batches as $batch) {
@@ -70,8 +73,8 @@ class SqlFileParser {
      * (We'll do a simple split, but ignore semicolons inside BEGIN...END blocks for triggers if needed)
      */
     private function splitStatements(string $batch): array {
-        // If it starts with CREATE TRIGGER, do not split it because it may contain BEGIN...END with internal semicolons
-        if (preg_match('/^\s*CREATE\s+TRIGGER/i', $batch)) {
+        // If it starts with CREATE TRIGGER/VIEW/PROCEDURE/FUNCTION, do not split it because it contains internal semicolons
+        if (preg_match('/^\s*CREATE\s+(?:TRIGGER|VIEW|PROCEDURE|PROC|FUNCTION)\b/i', $batch)) {
             return [$batch];
         }
         
@@ -111,6 +114,12 @@ class SqlFileParser {
             $this->parseAlterTableAddConstraint($stmt, $schema);
         } elseif (preg_match('/^\s*CREATE\s+TRIGGER/i', $stmt)) {
             $this->parseCreateTrigger($stmt, $schema);
+        } elseif (preg_match('/^\s*CREATE\s+VIEW/i', $stmt)) {
+            $this->parseCreateView($stmt, $schema);
+        } elseif (preg_match('/^\s*CREATE\s+(?:PROCEDURE|PROC)\b/i', $stmt)) {
+            $this->parseCreateProcedure($stmt, $schema);
+        } elseif (preg_match('/^\s*CREATE\s+FUNCTION/i', $stmt)) {
+            $this->parseCreateFunction($stmt, $schema);
         }
     }
     
@@ -526,5 +535,44 @@ class SqlFileParser {
             $parts[] = trim($current);
         }
         return $parts;
+    }
+
+    private function parseCreateView(string $stmt, array &$schema): void {
+        if (preg_match('/CREATE\s+VIEW\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+            $vSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
+            $vName = $this->cleanName($matches[2]);
+            $key = strtolower($vSchema . '.' . $vName);
+            $schema['views'][$key] = [
+                'schema'     => $vSchema,
+                'name'       => $vName,
+                'definition' => $stmt
+            ];
+        }
+    }
+
+    private function parseCreateProcedure(string $stmt, array &$schema): void {
+        if (preg_match('/CREATE\s+(?:PROCEDURE|PROC)\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+            $pSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
+            $pName = $this->cleanName($matches[2]);
+            $key = strtolower($pSchema . '.' . $pName);
+            $schema['procedures'][$key] = [
+                'schema'     => $pSchema,
+                'name'       => $pName,
+                'definition' => $stmt
+            ];
+        }
+    }
+
+    private function parseCreateFunction(string $stmt, array &$schema): void {
+        if (preg_match('/CREATE\s+FUNCTION\s+(?:(\[?\w+\]?)\.)?(\[?\w+\]?)/i', $stmt, $matches)) {
+            $fSchema = !empty($matches[1]) ? $this->cleanName($matches[1]) : 'dbo';
+            $fName = $this->cleanName($matches[2]);
+            $key = strtolower($fSchema . '.' . $fName);
+            $schema['functions'][$key] = [
+                'schema'     => $fSchema,
+                'name'       => $fName,
+                'definition' => $stmt
+            ];
+        }
     }
 }

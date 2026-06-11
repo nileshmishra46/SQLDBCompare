@@ -61,7 +61,10 @@ $sourceObjectCount = count($sourceSchema['tables']) +
                      count($sourceSchema['check_constraints']) +
                      count($sourceSchema['default_constraints']) +
                      count($sourceSchema['indexes']) +
-                     count($sourceSchema['triggers']);
+                     count($sourceSchema['triggers']) +
+                     count($sourceSchema['views'] ?? []) +
+                     count($sourceSchema['procedures'] ?? []) +
+                     count($sourceSchema['functions'] ?? []);
 
 // Percentage match (rough estimate)
 $matchPercent = 100;
@@ -187,6 +190,24 @@ renderHeader('Comparison Report');
                             <button class="nav-link" id="triggers-tab" data-bs-toggle="tab" data-bs-target="#triggers-pane" type="button" role="tab">
                                 <i class="bi bi-lightning me-1"></i> Triggers 
                                 <span class="badge bg-secondary ms-1 small"><?php echo count($diff['missing_in_target']['triggers']) + count($diff['mismatches']['triggers']) + count($diff['missing_in_source']['triggers']); ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="views-tab" data-bs-toggle="tab" data-bs-target="#views-pane" type="button" role="tab">
+                                <i class="bi bi-eye me-1"></i> Views 
+                                <span class="badge bg-secondary ms-1 small"><?php echo count($diff['missing_in_target']['views'] ?? []) + count($diff['mismatches']['views'] ?? []) + count($diff['missing_in_source']['views'] ?? []); ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="procedures-tab" data-bs-toggle="tab" data-bs-target="#procedures-pane" type="button" role="tab">
+                                <i class="bi bi-terminal me-1"></i> Procs 
+                                <span class="badge bg-secondary ms-1 small"><?php echo count($diff['missing_in_target']['procedures'] ?? []) + count($diff['mismatches']['procedures'] ?? []) + count($diff['missing_in_source']['procedures'] ?? []); ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="functions-tab" data-bs-toggle="tab" data-bs-target="#functions-pane" type="button" role="tab">
+                                <i class="bi bi-braces me-1"></i> Functions 
+                                <span class="badge bg-secondary ms-1 small"><?php echo count($diff['missing_in_target']['functions'] ?? []) + count($diff['mismatches']['functions'] ?? []) + count($diff['missing_in_source']['functions'] ?? []); ?></span>
                             </button>
                         </li>
                     </ul>
@@ -708,6 +729,291 @@ renderHeader('Comparison Report');
                                     <?php if (!$hasTrg): ?>
                                         <tr>
                                             <td colspan="4" class="text-center py-4 text-muted small">No differences found in triggers. All triggers match!</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- VIEWS TAB -->
+                    <div class="tab-pane fade" id="views-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="views-table">
+                                <thead class="table-light text-secondary small">
+                                    <tr>
+                                        <th>View Name</th>
+                                        <th>Schema</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Remediation DDL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $hasView = false;
+                                    foreach ($diff['missing_in_target']['views'] ?? [] as $key => $view):
+                                        $hasView = true;
+                                        $snippetId = 'snippet_view_add_' . md5($key);
+                                        $ddl = $generator->generateAddView($view);
+                                        ?>
+                                        <tr class="diff-row-missing-target">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($view['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($view['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-target"><i class="bi bi-plus-circle"></i> Missing View</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['mismatches']['views'] ?? [] as $key => $item):
+                                        $hasView = true;
+                                        $src = $item['source'];
+                                        $tgt = $item['target'];
+                                        $snippetId = 'snippet_view_mod_' . md5($key);
+                                        $ddl = $generator->generateDropView($tgt) . "\nGO\n" . $generator->generateAddView($src);
+                                        ?>
+                                        <tr class="diff-row-mismatch">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($src['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($src['schema']); ?></code></td>
+                                            <td><span class="badge badge-mismatch"><i class="bi bi-exclamation-triangle"></i> Mismatched View</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['missing_in_source']['views'] ?? [] as $key => $view):
+                                        $hasView = true;
+                                        $snippetId = 'snippet_view_del_' . md5($key);
+                                        $ddl = $generator->generateDropView($view);
+                                        ?>
+                                        <tr class="diff-row-missing-source">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($view['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($view['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-source"><i class="bi bi-info-circle"></i> Extra in Target</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php if (!$hasView): ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted small">No differences found in views. All views match!</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- PROCEDURES TAB -->
+                    <div class="tab-pane fade" id="procedures-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="procedures-table">
+                                <thead class="table-light text-secondary small">
+                                    <tr>
+                                        <th>Proc Name</th>
+                                        <th>Schema</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Remediation DDL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $hasProc = false;
+                                    foreach ($diff['missing_in_target']['procedures'] ?? [] as $key => $proc):
+                                        $hasProc = true;
+                                        $snippetId = 'snippet_proc_add_' . md5($key);
+                                        $ddl = $generator->generateAddProcedure($proc);
+                                        ?>
+                                        <tr class="diff-row-missing-target">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($proc['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($proc['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-target"><i class="bi bi-plus-circle"></i> Missing Proc</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['mismatches']['procedures'] ?? [] as $key => $item):
+                                        $hasProc = true;
+                                        $src = $item['source'];
+                                        $tgt = $item['target'];
+                                        $snippetId = 'snippet_proc_mod_' . md5($key);
+                                        $ddl = $generator->generateDropProcedure($tgt) . "\nGO\n" . $generator->generateAddProcedure($src);
+                                        ?>
+                                        <tr class="diff-row-mismatch">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($src['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($src['schema']); ?></code></td>
+                                            <td><span class="badge badge-mismatch"><i class="bi bi-exclamation-triangle"></i> Mismatched Proc</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['missing_in_source']['procedures'] ?? [] as $key => $proc):
+                                        $hasProc = true;
+                                        $snippetId = 'snippet_proc_del_' . md5($key);
+                                        $ddl = $generator->generateDropProcedure($proc);
+                                        ?>
+                                        <tr class="diff-row-missing-source">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($proc['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($proc['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-source"><i class="bi bi-info-circle"></i> Extra in Target</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php if (!$hasProc): ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted small">No differences found in stored procedures. All procs match!</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- FUNCTIONS TAB -->
+                    <div class="tab-pane fade" id="functions-pane" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="functions-table">
+                                <thead class="table-light text-secondary small">
+                                    <tr>
+                                        <th>Function Name</th>
+                                        <th>Schema</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Remediation DDL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $hasFunc = false;
+                                    foreach ($diff['missing_in_target']['functions'] ?? [] as $key => $func):
+                                        $hasFunc = true;
+                                        $snippetId = 'snippet_func_add_' . md5($key);
+                                        $ddl = $generator->generateAddFunction($func);
+                                        ?>
+                                        <tr class="diff-row-missing-target">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($func['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($func['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-target"><i class="bi bi-plus-circle"></i> Missing Function</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['mismatches']['functions'] ?? [] as $key => $item):
+                                        $hasFunc = true;
+                                        $src = $item['source'];
+                                        $tgt = $item['target'];
+                                        $snippetId = 'snippet_func_mod_' . md5($key);
+                                        $ddl = $generator->generateDropFunction($tgt) . "\nGO\n" . $generator->generateAddFunction($src);
+                                        ?>
+                                        <tr class="diff-row-mismatch">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($src['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($src['schema']); ?></code></td>
+                                            <td><span class="badge badge-mismatch"><i class="bi bi-exclamation-triangle"></i> Mismatched Function</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php
+                                    foreach ($diff['missing_in_source']['functions'] ?? [] as $key => $func):
+                                        $hasFunc = true;
+                                        $snippetId = 'snippet_func_del_' . md5($key);
+                                        $ddl = $generator->generateDropFunction($func);
+                                        ?>
+                                        <tr class="diff-row-missing-source">
+                                            <td class="fw-bold"><?php echo htmlspecialchars($func['name']); ?></td>
+                                            <td><code class="text-secondary"><?php echo htmlspecialchars($func['schema']); ?></code></td>
+                                            <td><span class="badge badge-missing-source"><i class="bi bi-info-circle"></i> Extra in Target</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#<?php echo $snippetId; ?>">View DDL</button>
+                                            </td>
+                                        </tr>
+                                        <tr class="collapse-row bg-light border-0">
+                                            <td colspan="4" class="p-0 border-0">
+                                                <div class="collapse p-3" id="<?php echo $snippetId; ?>">
+                                                    <pre class="code-block m-0"><button class="copy-btn btn btn-sm">Copy</button><code id="code_<?php echo $snippetId; ?>"><?php echo htmlspecialchars($ddl); ?></code></pre>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                    <?php if (!$hasFunc): ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted small">No differences found in user-defined functions. All functions match!</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>

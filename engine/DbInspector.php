@@ -21,6 +21,9 @@ class DbInspector {
             'default_constraints' => $this->inspectDefaultConstraints(),
             'indexes'             => $this->inspectIndexes(),
             'triggers'            => $this->inspectTriggers(),
+            'views'               => $this->inspectViews(),
+            'procedures'          => $this->inspectProcedures(),
+            'functions'           => $this->inspectFunctions(),
         ];
     }
 
@@ -282,5 +285,69 @@ class DbInspector {
             ];
         }
         return $triggers;
+    }
+
+    private function inspectViews(): array {
+        $sql = "SELECT v.name AS VIEW_NAME,
+                       OBJECT_SCHEMA_NAME(v.object_id) AS SCHEMA_NAME,
+                       OBJECT_DEFINITION(v.object_id) AS VIEW_DEFINITION
+                FROM sys.views v
+                ORDER BY SCHEMA_NAME, VIEW_NAME";
+        
+        $stmt = $this->db->query($sql);
+        $views = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $schema = $row['SCHEMA_NAME'] ?? 'dbo';
+            $key = strtolower($schema . '.' . $row['VIEW_NAME']);
+            $views[$key] = [
+                'schema'     => $schema,
+                'name'       => $row['VIEW_NAME'],
+                'definition' => $row['VIEW_DEFINITION']
+            ];
+        }
+        return $views;
+    }
+
+    private function inspectProcedures(): array {
+        $sql = "SELECT p.name AS PROC_NAME,
+                       OBJECT_SCHEMA_NAME(p.object_id) AS SCHEMA_NAME,
+                       OBJECT_DEFINITION(p.object_id) AS PROC_DEFINITION
+                FROM sys.procedures p
+                ORDER BY SCHEMA_NAME, PROC_NAME";
+        
+        $stmt = $this->db->query($sql);
+        $procedures = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $schema = $row['SCHEMA_NAME'] ?? 'dbo';
+            $key = strtolower($schema . '.' . $row['PROC_NAME']);
+            $procedures[$key] = [
+                'schema'     => $schema,
+                'name'       => $row['PROC_NAME'],
+                'definition' => $row['PROC_DEFINITION']
+            ];
+        }
+        return $procedures;
+    }
+
+    private function inspectFunctions(): array {
+        $sql = "SELECT f.name AS FUNC_NAME,
+                       OBJECT_SCHEMA_NAME(f.object_id) AS SCHEMA_NAME,
+                       OBJECT_DEFINITION(f.object_id) AS FUNC_DEFINITION
+                FROM sys.objects f
+                WHERE f.type IN ('FN', 'IF', 'TF')
+                ORDER BY SCHEMA_NAME, FUNC_NAME";
+        
+        $stmt = $this->db->query($sql);
+        $functions = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $schema = $row['SCHEMA_NAME'] ?? 'dbo';
+            $key = strtolower($schema . '.' . $row['FUNC_NAME']);
+            $functions[$key] = [
+                'schema'     => $schema,
+                'name'       => $row['FUNC_NAME'],
+                'definition' => $row['FUNC_DEFINITION']
+            ];
+        }
+        return $functions;
     }
 }
