@@ -246,9 +246,22 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ---
 
-## 📝 License
+## Screenshots 
+<img width="1478" height="753" alt="Screenshot 2026-06-12 003517" src="https://github.com/user-attachments/assets/969ae416-7138-4987-b1f3-f60b3cdfc533" />
 
-[MIT](LICENSE)
+<img width="1918" height="1088" alt="Screenshot 2026-06-12 004948" src="https://github.com/user-attachments/assets/d34b987c-f31a-4723-8fa6-0ab60032287a" />
+
+<img width="1918" height="1197" alt="Screenshot 2026-06-12 003824" src="https://github.com/user-attachments/assets/f7beda08-d856-4aa6-b90b-4424a790ee4a" />
+
+<img width="1918" height="1133" alt="Screenshot 2026-06-12 004218" src="https://github.com/user-attachments/assets/61e4f819-96ac-4460-86f7-c19e6d026643" />
+
+<img width="1918" height="1133" alt="Screenshot 2026-06-12 004255" src="https://github.com/user-attachments/assets/8297637c-062f-46d6-b6f2-6260af160c79" />
+
+<img width="1918" height="1137" alt="Screenshot 2026-06-12 004511" src="https://github.com/user-attachments/assets/9e060d0c-4471-4bf0-90b9-2fa03ae4a506" />
+
+<img width="1918" height="1135" alt="Screenshot 2026-06-12 004543" src="https://github.com/user-attachments/assets/821284c2-09c4-4d5c-9958-a4451e1befcb" />
+
+
 
 ---
 
@@ -257,3 +270,4 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 **Nilesh Mishra** — Database Administrator 
 - GitHub: [https://github.com/nileshmishra46]
 - LinkedIn: [https://www.linkedin.com/in/nilesh46/]
+
