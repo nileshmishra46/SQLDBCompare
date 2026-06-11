@@ -9,6 +9,10 @@ $maxSizeBytes = $maxSizeMb * 1024 * 1024;
 $uploadDir = $settings['upload_dir'] ?? (__DIR__ . '/uploads/');
 
 $errors = [];
+if (isset($_SESSION['compare_error'])) {
+    $errors[] = $_SESSION['compare_error'];
+    unset($_SESSION['compare_error']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $srcUploaded = isset($_FILES['source_file']) && $_FILES['source_file']['error'] === UPLOAD_ERR_OK;

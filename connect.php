@@ -6,6 +6,11 @@ session_start();
 $sqlsrvLoaded = extension_loaded('sqlsrv') && extension_loaded('pdo_sqlsrv');
 
 $errors = [];
+if (isset($_SESSION['compare_error'])) {
+    $errors[] = $_SESSION['compare_error'];
+    unset($_SESSION['compare_error']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$sqlsrvLoaded) {
         $errors[] = "The sqlsrv/pdo_sqlsrv PHP extensions are not loaded. Live connections are disabled.";
