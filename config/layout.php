@@ -46,7 +46,7 @@ function renderFooter(): void {
 
         <footer class="footer mt-auto py-4 border-top border-color text-center" style="background: var(--bg-secondary); border-color: var(--border-color) !important;">
             <div class="container">
-                <span class="text-muted small">&copy; <?php echo date('Y'); ?> SQL Schema Comparator. Built for secure database migrations.</span>
+                <span class="text-muted small">&copy; <?php echo date('Y'); ?> SQL Schema Comparator. Developed by Nilesh Mishra. Built for secure database migrations.</span>
             </div>
         </footer>
 
