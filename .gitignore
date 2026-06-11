@@ -2,3 +2,6 @@
 !/uploads/.gitignore
 /output/fix_scripts/*
 !/output/fix_scripts/.gitignore
+/dist/
+/build_cache/
+/SQLDBCompare_Portable.zip
